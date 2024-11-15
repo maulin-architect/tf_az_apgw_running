@@ -1,0 +1,99 @@
+terraform {
+  required_providers {
+    azurerm = {
+      source  = "hashicorp/azurerm"
+      version = "3.53.0"
+    }
+    tls = {
+      source  = "hashicorp/tls"
+      version = "~>4.0"
+    }
+  }
+}
+
+provider "azurerm" {
+  # Configuration options
+  features {}
+  skip_provider_registration = true
+}
+
+data "azurerm_resource_group" "example" {
+  name = var.resource_group_name
+}
+
+resource "azurerm_virtual_network" "vnet" {
+  name                = "maulin-vnet"
+  address_space       = ["10.0.0.0/16"]
+  location            = data.azurerm_resource_group.example.location
+  resource_group_name = data.azurerm_resource_group.example.name
+}
+
+resource "azurerm_subnet" "subnet" {
+  name                 = "maulin-subnet"
+  resource_group_name  = data.azurerm_resource_group.example.name
+  virtual_network_name = azurerm_virtual_network.vnet.name
+  address_prefixes     = ["10.0.1.0/24"]
+}
+
+resource "azurerm_public_ip" "static_public_ip" {
+  name                = "maulin-static-public-ip"
+  location            = data.azurerm_resource_group.example.location
+  resource_group_name = data.azurerm_resource_group.example.name
+  allocation_method   = "Static"
+  sku                 = "Standard"
+}
+
+resource "azurerm_application_gateway" "appgw" {
+  name                = "Maulin-appgw"
+  location            = data.azurerm_resource_group.example.location
+  resource_group_name = data.azurerm_resource_group.example.name
+
+  sku {
+    name     = var.sku_name
+    tier     = "Standard_v2"
+    capacity = 2
+  }
+
+  gateway_ip_configuration {
+    name      = "appgw-ip-config"
+    subnet_id = azurerm_subnet.subnet.id
+  }
+
+  frontend_ip_configuration {
+    name                 = "appgw-frontend-ip"
+    public_ip_address_id = azurerm_public_ip.static_public_ip.id
+  }
+
+  frontend_port {
+    name = "http"
+    port = 80
+  }
+
+  backend_address_pool {
+    name = "appgw-backend-pool"
+  }
+
+  backend_http_settings {
+    name                  = "appgw-backend-http-settings"
+    cookie_based_affinity = "Disabled"
+    port                  = 80
+    protocol              = "Http"
+    request_timeout       = 30
+  }
+
+  http_listener {
+    name                           = "appgw-http-listener"
+    frontend_ip_configuration_name = "appgw-frontend-ip"
+    frontend_port_name             = "http"
+    protocol                       = "Http"
+  }
+
+  request_routing_rule {
+    name                       = "appgw-routing-rule"
+    rule_type                  = "Basic"
+    http_listener_name         = "appgw-http-listener"
+    backend_address_pool_name  = "appgw-backend-pool"
+    backend_http_settings_name = "appgw-backend-http-settings"
+	priority = 1
+  }
+}
