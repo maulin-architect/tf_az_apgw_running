@@ -1,0 +1,6 @@
+module "Maulin" {
+        source = "./modules"
+        sku_name  = "Standard_v2"
+        resource_group_name = "kml_rg_main-04490d4643094d3c"
+}
+    
