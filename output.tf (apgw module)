@@ -1,0 +1,11 @@
+# outputs.tf
+
+output "appgw_id" {
+  description = "ID of the Application Gateway"
+  value       = azurerm_application_gateway.appgw.id
+}
+
+output "appgw_frontend_ip_configuration" {
+  description = "Frontend IP configuration of the Application Gateway"
+  value       = azurerm_application_gateway.appgw.frontend_ip_configuration
+}
